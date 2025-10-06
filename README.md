@@ -15,7 +15,7 @@ This library has been tested with with the Arduino-Pico (V5.30) 16-bit I2S (left
 The code may work with other architectures and modes, however the platform's I2S commands will likely differ from those used in the example.
 
 ## I2S operation 
-I2S mode is the default for single codecs, however TDM may be selected using the i2sMode argument.
+Only signed 16-bit stereo I2S mode is implemented.
 
 ## Available Hardware
 
@@ -24,7 +24,6 @@ The Teensy Audio Board (version C, D or D2) is compatible with this library.  ht
 
 
 ### Wire
-
 Defining and initialising the Wire library is the responsibility of the user application. 
 
 This must be completed before enable( ) is called.
@@ -38,18 +37,18 @@ The exceptions are:
 
 SGTL clock master mode and the PLL are disabled, requiring a synchronized MCLK of Fs x 256 or 512 for <= 48kHz, and 256 for 96kHz operation.
 
+
+The constructor requires the I2C address of the CODEC.
 ```
 SGTL5000 codec(i2c_addr);
 ```
-The constructor requires the I2C address of the CODEC.
-
+The sample rate and sysClck frequency should be issued before enable()
 ```
 setSampleRate(uint32_t sampleRate);
 ```
 ```
 setSysClk(uint32_t sampleRate);
 ```
-The sample rate and sysClck frequency should be issued before enable()
 
 ## Examples
 - Basic operation I2S mode. Output only and full duplex with one channel pass-through.
