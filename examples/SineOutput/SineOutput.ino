@@ -1,9 +1,17 @@
 //  SGTL5000 Sine output and optional input pass through
 // Arduino-pico 5.3.0 
-//#define OUTPUT_ONLY
-uint32_t sampleRate = 48000; // 44100 is teensy standard
+
+// comment out next line for L channel pass-though
+//#define OUTPUT_ONLY // 2 channels of sine output, left is inverted
+
+uint32_t sampleRate = 96000; // 44100 is Teensy standard
 int sampleLength = 16;
-uint16_t MCLKmult = 256;
+uint16_t MCLKmult = 256; // works for all 16-bit sample rates
+
+// specific Pico SYSCLK rates to minimise MCLK Jitter
+static const int I2SSYSCLK_44_1 = 135600; // 22.05, 44.1 kHz sample rates
+static const int I2SSYSCLK_8 = 147600;  // 8k, 16, 32, 48, 96, 192 kHz
+
 #include <Wire.h>
 #include <I2S.h>
 #ifdef OUTPUT_ONLY
@@ -23,20 +31,22 @@ SGTL5000 codec(i2c_addr);
 #define BCLK 19
 #define MCLK 18
 
-
 #define SDAPIN 4
 #define SCLPIN 5
 
-#define BUFLEN 1024
-int16_t outBuf[2][BUFLEN]; // stereo
+#define BUFLEN 2048
+int16_t outBuf[BUFLEN]; // stereo
 
 void setup(void) {
   Serial.begin(19200);
   while(!Serial)
 			delay(10);
-  Serial.println("SGTL5000 input/output");
-  Serial.println("OUTPUT_ONLY -> sine on both channels");
-  Serial.println("OUTPUT_ONLY -> L output from L input, sine on R output");
+  Serial.println("SGTL5000 basic operation");
+#ifdef OUTPUT_ONLY
+  Serial.println("OUTPUT ONLY: sine on L & R, R inverted");
+#else
+  Serial.println("DUPLEX: L output from L input, sine on R output");
+#endif
   Wire.setSDA(SDAPIN);
 	Wire.setSCL(SCLPIN);
   Wire.begin();
@@ -44,10 +54,11 @@ void setup(void) {
 
   int actualF =	fillSineBuffer(1000, 28000); // 1kHz, 2/3 max value
 	Serial.printf("Actual frequency is %i\n", actualF);
-  
+
   // minimise MCLK jitter by setting integer multiple SYSCLK frequency
-  i2s.setSysClk(sampleRate); // Pico I2S audio specific
-  Serial.printf("SysClk is %li\n", rp2040.f_cpu());
+  set_sys_clock_khz(I2SSYSCLK_8, false);
+  //i2s.setSysClk(sampleRate); // OK for 44.1kHz, wrong for other sample rates
+  //Serial.printf("SysClk is %li\n", rp2040.f_cpu());
   
 #ifdef OUTPUT_ONLY
   i2s.setDATA(DOUT);
@@ -67,7 +78,7 @@ void setup(void) {
   codec.enable();
   codec.volume(0.5);     // set the main volume...
   codec.dacVolume(1);    
-  Serial.printf("CLK_CTRL %04X\n", codec.read(4)); //CHIP_CLK_CTRL
+
   Serial.println("setup done");
 }
 
@@ -76,10 +87,10 @@ void loop()
 {
 	int16_t l, r;
 #ifdef OUTPUT_ONLY
-	i2s.write16(outBuf[1][bufIndx], outBuf[1][bufIndx]); 
+	i2s.write16(-outBuf[bufIndx], outBuf[bufIndx]); // left channel is inverted
 #else
 	i2s.read16(&l, &r);
-  i2s.write16(l, outBuf[1][bufIndx]); // left channel pass-through
+  i2s.write16(l, outBuf[bufIndx]); // left channel pass-through
 #endif
 
 	bufIndx = (bufIndx + 1) % BUFLEN;  
@@ -93,7 +104,7 @@ int fillSineBuffer(uint16_t freqTarget, int countMax)
   int cycsTable = 0.5 + 1.0 * freqTarget * BUFLEN / sampleRate; // round to closest integer
   int freq = cycsTable * sampleRate / BUFLEN;
 	for(int i = 0; i < BUFLEN; i++)
-		outBuf[1][i] = countMax * sin(i * 2.0 * 3.14159 * cycsTable / BUFLEN);
+		outBuf[i] = countMax * sin(i * 2.0 * 3.14159 * cycsTable / BUFLEN);
 	return freq;
 }
 /*
