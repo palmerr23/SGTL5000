@@ -4,6 +4,8 @@ A generic Arduino control library for the NXP SGTL5000 stereo channel CODEC.
 
 V1.0
 
+Ported from https://github.com/PaulStoffregen/Audio
+
 ## Compatibility
 Tested with Arduino Pico and Pico 2 with Arduino-pico 5.30 or later.
 
