@@ -28,6 +28,8 @@
 #include "sgtl5000.h"
 #include "Wire.h"
 
+uint16_t calcSysFS(uint32_t sampleRate);
+
 #define CHIP_ID				0x0000
 // 15:8 PARTID		0xA0 - 8 bit identifier for SGTL5000
 // 7:0  REVID		0x00 - revision number for SGTL5000.
@@ -501,6 +503,7 @@
 SGTL5000::SGTL5000(uint8_t i2cAddr)
 {
 	i2c_addr = i2cAddr;
+	_sampleRate = DEFAULT_AUDIO_SAMPLE_RATE;
 }
 
 void SGTL5000::setAddress(uint8_t level)
@@ -530,9 +533,14 @@ bool SGTL5000::enable(void) {
 #endif	
 }
 
-bool SGTL5000::enable(const unsigned extMCLK, const uint32_t pllFreq)
-{
+void SGTL5000::setSampleRate(uint32_t sampleRate) {
+	_sampleRate = sampleRate;
+}
 
+bool SGTL5000::enable(const unsigned extMCLK, uint32_t pllFreq)
+{
+	if (pllFreq == 0)
+		pllFreq = 4096.0l * _sampleRate;
 	Wire.begin();
 	delay(5);
 	
@@ -550,7 +558,7 @@ bool SGTL5000::enable(const unsigned extMCLK, const uint32_t pllFreq)
 	//unsigned int n = read(CHIP_ID);
 	//Serial.println(n, HEX);
 
-        muted = true;
+   muted = true;
 
 	int r = write(CHIP_ANA_POWER, 0x4060);  // VDDD is externally driven with 1.8V
 	if (!r) return false;
@@ -561,6 +569,7 @@ bool SGTL5000::enable(const unsigned extMCLK, const uint32_t pllFreq)
 	write(CHIP_ANA_CTRL, 0x0137);  // enable zero cross detectors
 		
 	if (extMCLK > 0) {
+		Serial.print(">>> SGTL is I2S Master");
 		//SGTL is I2S Master
 		//Datasheet Pg. 14: Using the PLL - Asynchronous SYS_MCLK input
 		if (extMCLK > 17000000) {
@@ -589,8 +598,9 @@ bool SGTL5000::enable(const unsigned extMCLK, const uint32_t pllFreq)
 		write(CHIP_I2S_CTRL, 0x0030 | (1<<7)); // SCLK=64*Fs, 16bit, I2S format
 	} else {
 		//SGTL is I2S Slave
-		write(CHIP_CLK_CTRL, 0x0004);  // 44.1 kHz, 256*Fs
-		write(CHIP_I2S_CTRL, 0x0030); // SCLK=64*Fs, 16bit, I2S format
+		uint16_t cctrl = 0x0000 | (calcSysFS(_sampleRate) << 2);
+		write(CHIP_CLK_CTRL, cctrl);  // sampleRate, 256*Fs
+		write(CHIP_I2S_CTRL, 0x0030); // SCLK=64*Fs (master mode only), 16bit, I2S format
 	}
 
 	// default signal routing is ok?
@@ -603,6 +613,24 @@ bool SGTL5000::enable(const unsigned extMCLK, const uint32_t pllFreq)
 	semi_automated = true;
 	return true;
 }
+
+uint16_t calcSysFS(uint32_t sampleRate)
+{
+	switch(sampleRate)
+	{
+		case 32000:
+			return 0x00;
+		case 48000:
+			return 0x02;
+		case 96000:
+			return 0x03;
+		default:
+		case 44100:
+			return 0x01;
+	}
+return 0x01; // 44.1kHz default	
+}
+	
 
 
 unsigned int SGTL5000::read(unsigned int reg)

@@ -1,16 +1,18 @@
-# Arduino SGTL5000 2x2 CODEC control library for Pico
-
-A generic Arduino control library for the NXP SGTL5000 stereo channel CODEC. 
+# SGTL5000 2x2 CODEC control library for Arduino Pico
 
 V1.0
+
+A generic Arduino control library for the NXP SGTL5000 stereo channel CODEC, specifically intended for use with Pico and Pico 2 processors under Arduino-Pico v5.30 or later.
 
 Ported from https://github.com/PaulStoffregen/Audio
 
 ## Compatibility
 
-This library has been tested with with the Arduino-Pico (V5.30) 16-bit I2S (left justified) driver in output-only and duplex modes.
+This library has been tested with with the Arduino-Pico (V5.30) 16-bit I2S (left justified) driver in output-only and duplex modes using a Version C Teensy Audio Board.
 
-It may work with other architectures, however I2S commands will likely differ.
+44.1, 48 and 96kHz sample rates have been tested.
+
+The code may work with other architectures and modes, however the platform's I2S commands will likely differ from those used in the example.
 
 ## I2S operation 
 I2S mode is the default for single codecs, however TDM may be selected using the i2sMode argument.
@@ -32,11 +34,22 @@ The library uses the same commands as for the Teensy Audio Library version, see:
 
 https://www.pjrc.com/teensy/gui/index.html?info=AudioControlSGTL5000
 
-The only exception is the constructor requires the I2C address of the CODEC:
+The exceptions are: 
+
+SGTL clock master mode and the PLL are disabled, requiring a synchronized MCLK of Fs x 256 or 512 for <= 48kHz, and 256 for 96kHz operation.
 
 ```
 SGTL5000 codec(i2c_addr);
 ```
+The constructor requires the I2C address of the CODEC.
+
+```
+setSampleRate(uint32_t sampleRate);
+```
+```
+setSysClk(uint32_t sampleRate);
+```
+The sample rate and sysClck frequency should be issued before enable()
 
 ## Examples
 - Basic operation I2S mode. Output only and full duplex with one channel pass-through.

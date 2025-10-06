@@ -28,6 +28,7 @@
 #define sgtl5000_h_
 // Teensy Audio Library default
 #define AUDIO_SAMPLE_RATE_EXACT 44100
+#define DEFAULT_AUDIO_SAMPLE_RATE 44100
 // SGTL5000-specific defines
 #define AUDIO_HEADPHONE_DAC 0
 #define AUDIO_HEADPHONE_LINEIN 1
@@ -50,8 +51,9 @@ public:
 	SGTL5000(uint8_t i2cAddr);
 	~SGTL5000();
 	void setAddress(uint8_t level);
+	void setSampleRate(uint32_t sampleRate); // issue before enable()
 	bool enable(void);//For Teensy LC the SGTL acts as master, for all other Teensys as slave.
-	bool enable(const unsigned extMCLK, const uint32_t pllFreq = (4096.0l * AUDIO_SAMPLE_RATE_EXACT) ); //With extMCLK > 0, the SGTL acts as Master
+	bool enable(const unsigned extMCLK, uint32_t pllFreq = 0); //With extMCLK > 0, the SGTL acts as Master
 	bool disable(void) { return false; }
 	void setI2Smode(I2Smode_t mode); // use after enable()
 	bool volume(float n) { return volumeInteger(n * 129 + 0.499f); }
@@ -133,6 +135,7 @@ private:
 	bool semi_automated;
 	void automate(uint8_t dap, uint8_t eq);
 	void automate(uint8_t dap, uint8_t eq, uint8_t filterCount);
+	uint32_t _sampleRate;
 };
 
 //For Filter Type: 0 = LPF, 1 = HPF, 2 = BPF, 3 = NOTCH, 4 = PeakingEQ, 5 = LowShelf, 6 = HighShelf

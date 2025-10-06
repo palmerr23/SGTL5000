@@ -1,8 +1,9 @@
 //  SGTL5000 Sine output and optional input pass through
-// Arduino-pico 5.3.0
+// Arduino-pico 5.3.0 
 //#define OUTPUT_ONLY
-uint32_t sampleRate = 44100; // teensy standard
+uint32_t sampleRate = 48000; // 44100 is teensy standard
 int sampleLength = 16;
+uint16_t MCLKmult = 256;
 #include <Wire.h>
 #include <I2S.h>
 #ifdef OUTPUT_ONLY
@@ -42,8 +43,12 @@ void setup(void) {
   Wire.setClock(100000);
 
   int actualF =	fillSineBuffer(1000, 28000); // 1kHz, 2/3 max value
-	Serial.printf("Frequency is %i\n", actualF);
-  i2s.setSysClk(sampleRate);
+	Serial.printf("Actual frequency is %i\n", actualF);
+  
+  // minimise MCLK jitter by setting integer multiple SYSCLK frequency
+  i2s.setSysClk(sampleRate); // Pico I2S audio specific
+  Serial.printf("SysClk is %li\n", rp2040.f_cpu());
+  
 #ifdef OUTPUT_ONLY
   i2s.setDATA(DOUT);
 #else
@@ -52,15 +57,17 @@ void setup(void) {
 #endif
   i2s.setBCLK(BCLK); // LRCLK (WCLK) pin = BCLK + 1
 	i2s.setMCLK(MCLK);
-  i2s.setMCLKmult(256);
+  i2s.setMCLKmult(MCLKmult);
   i2s.setBitsPerSample(sampleLength);
   i2s.setFrequency(sampleRate);
   i2s.begin();
 
   //  MCLK must be running before the chip will respond to I2C commands
+  codec.setSampleRate(sampleRate);
   codec.enable();
   codec.volume(0.5);     // set the main volume...
   codec.dacVolume(1);    
+  Serial.printf("CLK_CTRL %04X\n", codec.read(4)); //CHIP_CLK_CTRL
   Serial.println("setup done");
 }
 
